@@ -1,14 +1,13 @@
 # Use official Golang image as base
-FROM golang:1.22-alpine
+FROM golang:1.22 as builder
 
 # Set working directory
 WORKDIR /app
 
 # Copy Go source files to /app in container
-COPY main.go config.go start.sh ./
+COPY main.go config.go ./
 
 # Make startup script executable
-RUN chmod +x start.sh
 
 # Set environment variable for API key (can be overridden with --env on run)
 ENV GEMINI_API_KEY="AIzaSyCGrwGPzWY3W90ZFHgfGGdX5Azj3g7rFAE"
@@ -20,4 +19,4 @@ RUN go build -o chatbot main.go config.go
 EXPOSE 8008
 
 # Use startup script for better debugging
-CMD ["./start.sh"]
+CMD ["./chatbot","-h","0.0.0.0","-p","8008","-t","120"]
