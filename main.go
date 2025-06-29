@@ -28,6 +28,7 @@ type Config struct {
 var config Config
 var fileLogger *log.Logger
 var logFile *os.File
+var startTime time.Time
 
 // Load base prompt from file or use default
 func loadBasePrompt(promptFile string) string {
@@ -68,6 +69,7 @@ func initLogging(logFilePath string) error {
 	config.LogFile = logFilePath
 
 	fmt.Printf("Logging to file: %s\n", logFilePath)
+	startTime = time.Now()
 	return nil
 }
 
@@ -379,7 +381,16 @@ func handlePrompt(w http.ResponseWriter, r *http.Request) {
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	logf("Health check request from %s", r.RemoteAddr)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
+
+	healthStatus := map[string]interface{}{
+		"status":    "healthy",
+		"service":   "Gemini 2.0 Chat Server",
+		"timestamp": time.Now().Format(time.RFC3339),
+		"uptime":    time.Since(startTime).String(),
+		"version":   "1.0.0",
+	}
+
+	json.NewEncoder(w).Encode(healthStatus)
 }
 
 // Helper function to truncate strings for logging
@@ -501,6 +512,12 @@ func main() {
 	var logFile = flag.String("log", "chatbot.log", "Path to log file")
 	var timeout = flag.Int("t", 60, "Session timeout in seconds")
 	flag.Parse()
+
+	// Check for Railway PORT environment variable
+	if railwayPort := os.Getenv("PORT"); railwayPort != "" {
+		*port = railwayPort
+		*host = "0.0.0.0" // Railway requires binding to 0.0.0.0
+	}
 
 	// Initialize logging
 	if err := initLogging(*logFile); err != nil {

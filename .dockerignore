@@ -1,0 +1,10 @@
+.git
+.gitignore
+README.md
+Dockerfile
+.dockerignore
+chatbot
+chatbot.log
+test.sh
+bin/
+*.md 

@@ -123,3 +123,36 @@ go run client_test.go
 
 - Standard Go libraries only (no external dependencies)
 - Requires Go 1.16 or later
+
+## Deployment
+
+### Railway Deployment
+
+1. **Fork/Clone this repository**
+2. **Connect to Railway**: Link your GitHub repository to Railway
+3. **Set Environment Variables**:
+   - `GEMINI_API_KEY`: Your Gemini API key
+4. **Deploy**: Railway will automatically build and deploy using the Dockerfile
+
+### Docker Deployment
+
+```bash
+# Build the Docker image
+docker build -t chatbot .
+
+# Run with environment variable
+docker run -p 8008:8008 -e GEMINI_API_KEY="your_api_key" chatbot
+
+# Or run with custom settings
+docker run -p 8008:8008 -e GEMINI_API_KEY="your_api_key" chatbot ./chatbot -h 0.0.0.0 -p 8008 -t 120
+```
+
+### Local Development
+
+```bash
+# Set your Gemini API key
+export GEMINI_API_KEY="your_api_key_here"
+
+# Run locally
+go run main.go config.go -h 0.0.0.0 -p 8008 -t 120
+```
