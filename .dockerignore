@@ -6,6 +6,6 @@ Dockerfile
 chatbot
 chatbot.log
 test.sh
+test_local.sh
 bin/
 *.md
-!start.sh 
