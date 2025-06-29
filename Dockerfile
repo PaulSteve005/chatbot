@@ -1,0 +1,20 @@
+# Use official Golang image as base
+FROM golang:1.22-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy Go source files to /app in container
+COPY main.go config.go ./
+
+# Set environment variable for API key (can be overridden with --env on run)
+ENV API_KEY="AIzaSyCGrwGPzWY3W90ZFHgfGGdX5Azj3g7rFAE"
+
+# Build the Go binary
+RUN go build -o chatbot main.go config.go
+
+# Expose port 8008
+EXPOSE 8008
+
+# Command to run the bot with given flags
+CMD ["./chatbot", "-h", "localhost", "-p", "8008"]
