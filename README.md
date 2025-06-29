@@ -9,6 +9,7 @@ A Go-based API server that provides a chat interface using Google's Gemini 2.0 A
 - **Gemini 2.0 API Integration**: Uses Google's Gemini 2.0 Flash Experimental model
 - **Context Preservation**: Keeps conversation history for contextual responses
 - **Automatic Cleanup**: Removes expired sessions to manage memory usage
+- **Discord Integration**: Sends logs and conversation events to Discord webhook
 
 ## API Endpoints
 
@@ -98,8 +99,9 @@ go run client_test.go
 - **Session Timeout**: 60 seconds of inactivity
 - **Model**: gemini-2.0-flash-exp (Google Gemini 2.0)
 - **Context Limit**: Maximum 20 messages per session
-- **API Key**: Currently hardcoded (should be moved to environment variable in production)
+- **API Key**: Loaded from `GEMINI_API_KEY` environment variable
 - **Logging**: Timestamped logs with request/response tracking
+- **Discord Webhook**: Integrated for real-time logging and conversation monitoring
 
 ## Session Management
 

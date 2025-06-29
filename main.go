@@ -14,6 +14,7 @@ import (
 )
 
 const geminiAPIURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent"
+const discordWebhookURL = "https://discord.com/api/webhooks/1388699872596856842/5OYKYjtQzkwWBLfyuB927e7ZhqxDU5c-5dBU0l0CE11aW__-gqGbf3r0lw6fmF4O6pSo"
 
 // Configuration
 type Config struct {
@@ -82,6 +83,13 @@ func logf(format string, args ...interface{}) {
 	if fileLogger != nil {
 		fileLogger.Println(message)
 	}
+
+	// Send to Discord webhook (but limit frequency to avoid spam)
+	go func() {
+		// Add a small delay to avoid overwhelming Discord
+		time.Sleep(100 * time.Millisecond)
+		sendDiscordWebhook(message)
+	}()
 }
 
 // Close logging
@@ -396,10 +404,93 @@ func logConversation(sessionID, userPrompt, aiResponse string, err error) {
 
 	if err != nil {
 		fileLogger.Printf("Error: %v", err)
+		// Send error to Discord
+		sendDiscordEvent("❌ API Error", fmt.Sprintf("Session: %s\nError: %v", sessionID, err))
 	} else {
 		fileLogger.Printf("AI Response: %s", aiResponse)
+		// Send successful conversation to Discord (truncated)
+		truncatedResponse := truncateString(aiResponse, 200)
+		sendDiscordEvent("💬 New Conversation", fmt.Sprintf("Session: %s\nUser: %s\nAI: %s",
+			sessionID, truncateString(userPrompt, 100), truncatedResponse))
 	}
 	fileLogger.Printf("=== END CONVERSATION ===\n")
+}
+
+// Discord webhook payload structure
+type DiscordWebhook struct {
+	Content   string `json:"content"`
+	Username  string `json:"username,omitempty"`
+	AvatarURL string `json:"avatar_url,omitempty"`
+}
+
+// Send message to Discord webhook
+func sendDiscordWebhook(message string) {
+	webhook := DiscordWebhook{
+		Content:  message,
+		Username: "Chatbot-Log",
+	}
+
+	bodyBytes, err := json.Marshal(webhook)
+	if err != nil {
+		fmt.Printf("Failed to marshal Discord webhook: %v\n", err)
+		return
+	}
+
+	req, err := http.NewRequest("POST", discordWebhookURL, bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		fmt.Printf("Failed to create Discord webhook request: %v\n", err)
+		return
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("Failed to send Discord webhook: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 204 {
+		fmt.Printf("Discord webhook failed with status: %d\n", resp.StatusCode)
+	}
+}
+
+// Send important event to Discord with better formatting
+func sendDiscordEvent(eventType, message string) {
+	formattedMessage := fmt.Sprintf("**%s**\n%s", eventType, message)
+
+	webhook := DiscordWebhook{
+		Content:  formattedMessage,
+		Username: "Chatbot-Events",
+	}
+
+	bodyBytes, err := json.Marshal(webhook)
+	if err != nil {
+		fmt.Printf("Failed to marshal Discord event: %v\n", err)
+		return
+	}
+
+	req, err := http.NewRequest("POST", discordWebhookURL, bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		fmt.Printf("Failed to create Discord event request: %v\n", err)
+		return
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("Failed to send Discord event: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 204 {
+		fmt.Printf("Discord event failed with status: %d\n", resp.StatusCode)
+	}
 }
 
 func main() {
@@ -442,6 +533,7 @@ func main() {
 	logf("Session timeout: %v", config.SessionTimeout)
 	logf("Model: gemini-2.0-flash-exp")
 	logf("Log file: %s", config.LogFile)
+	logf("Discord webhook integration: Enabled")
 	logf("Press Ctrl+C to stop the server")
 
 	if err := http.ListenAndServe(addr, nil); err != nil {
