@@ -58,10 +58,37 @@ Railway will automatically check the `/health` endpoint to ensure your service i
 - Check that the service is running in Railway dashboard
 - Verify the URL is correct
 
+### 502 "Application failed to respond" Error
+This usually means the application is crashing on startup. Check:
+
+1. **Railway Logs**: Go to your Railway project → Deployments → Latest deployment → View logs
+2. **Environment Variables**: Ensure `GEMINI_API_KEY` is set correctly
+3. **Build Issues**: Check if the application builds successfully
+4. **Port Binding**: The app should bind to `0.0.0.0` and use Railway's `PORT`
+
+### Common Fixes for 502 Error:
+```bash
+# Check if your API key is valid
+curl -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"contents":[{"parts":[{"text":"Hello"}]}]}'
+```
+
 ### API Key Issues
 - Ensure `GEMINI_API_KEY` is set in Railway environment variables
 - Check that the API key is valid and has proper permissions
+- Verify the API key has access to Gemini 2.0 models
 
 ### Build Issues
 - Check Railway build logs for any compilation errors
-- Ensure all required files (main.go, config.go) are in the repository 
+- Ensure all required files (main.go, config.go, start.sh) are in the repository
+- Verify the Dockerfile is correct
+
+### Testing Locally Before Deploying
+```bash
+# Make test script executable
+chmod +x test_local.sh
+
+# Edit test_local.sh to add your API key, then run:
+./test_local.sh
+``` 

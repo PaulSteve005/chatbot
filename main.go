@@ -378,6 +378,25 @@ func handlePrompt(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+func handleRoot(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+
+	logf("Root endpoint accessed from %s", r.RemoteAddr)
+	w.Header().Set("Content-Type", "application/json")
+
+	rootStatus := map[string]interface{}{
+		"status":    "running",
+		"service":   "Gemini 2.0 Chat Server",
+		"endpoints": []string{"/health", "/prompt"},
+		"timestamp": time.Now().Format(time.RFC3339),
+	}
+
+	json.NewEncoder(w).Encode(rootStatus)
+}
+
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	logf("Health check request from %s", r.RemoteAddr)
 	w.Header().Set("Content-Type", "application/json")
@@ -515,9 +534,19 @@ func main() {
 
 	// Check for Railway PORT environment variable
 	if railwayPort := os.Getenv("PORT"); railwayPort != "" {
+		fmt.Printf("Railway PORT detected: %s\n", railwayPort)
 		*port = railwayPort
 		*host = "0.0.0.0" // Railway requires binding to 0.0.0.0
 	}
+
+	// Check for required environment variables
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	if apiKey == "" {
+		fmt.Printf("ERROR: GEMINI_API_KEY environment variable not set\n")
+		fmt.Printf("Please set GEMINI_API_KEY in Railway environment variables\n")
+		os.Exit(1)
+	}
+	fmt.Printf("GEMINI_API_KEY found: %s...\n", apiKey[:10])
 
 	// Initialize logging
 	if err := initLogging(*logFile); err != nil {
@@ -539,6 +568,7 @@ func main() {
 	}()
 
 	// Set up routes
+	http.HandleFunc("/", handleRoot)
 	http.HandleFunc("/prompt", handlePrompt)
 	http.HandleFunc("/health", handleHealth)
 
@@ -553,8 +583,10 @@ func main() {
 	logf("Discord webhook integration: Enabled")
 	logf("Press Ctrl+C to stop the server")
 
+	fmt.Printf("Server starting on %s...\n", addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		logf("Server error: %v", err)
+		fmt.Printf("FATAL: Server failed to start: %v\n", err)
 		os.Exit(1)
 	}
 }

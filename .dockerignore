@@ -7,4 +7,5 @@ chatbot
 chatbot.log
 test.sh
 bin/
-*.md 
+*.md
+!start.sh 
