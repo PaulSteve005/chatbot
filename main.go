@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const groqAPIURL = "https://api.groq.com/openai/v1/chat/completions"
+const geminiAPIURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent"
 
 // Configuration
 type Config struct {
@@ -94,19 +94,6 @@ func closeLogging() {
 type Message struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
-}
-
-type ChatRequest struct {
-	Model    string    `json:"model"`
-	Messages []Message `json:"messages"`
-}
-
-type Choice struct {
-	Message Message `json:"message"`
-}
-
-type ChatResponse struct {
-	Choices []Choice `json:"choices"`
 }
 
 // Session represents a conversation session
@@ -208,10 +195,54 @@ func (sm *SessionManager) getOrCreateSession(sessionID string) *Session {
 	return session
 }
 
-func callGroqAPI(apiKey string, messages []Message) (string, error) {
-	reqBody := ChatRequest{
-		Model:    "llama3-8b-8192", // Using the currently available free tier model
-		Messages: messages,
+// Gemini API request/response structures
+type GeminiContent struct {
+	Parts []GeminiPart `json:"parts"`
+}
+
+type GeminiPart struct {
+	Text string `json:"text"`
+}
+
+type GeminiRequest struct {
+	Contents []GeminiContent `json:"contents"`
+}
+
+type GeminiResponse struct {
+	Candidates []GeminiCandidate `json:"candidates"`
+}
+
+type GeminiCandidate struct {
+	Content GeminiContent `json:"content"`
+}
+
+func callGeminiAPI(apiKey string, messages []Message) (string, error) {
+	// Convert messages to Gemini format
+	var contents []GeminiContent
+
+	// For Gemini, we need to combine all messages into a single conversation
+	var conversationText string
+
+	for i, msg := range messages {
+		if i == 0 && msg.Role == "system" {
+			// Add system prompt as context
+			conversationText += "System: " + msg.Content + "\n\n"
+		} else if msg.Role == "user" {
+			conversationText += "User: " + msg.Content + "\n"
+		} else if msg.Role == "assistant" {
+			conversationText += "Assistant: " + msg.Content + "\n"
+		}
+	}
+
+	// Add the final user prompt
+	contents = []GeminiContent{
+		{
+			Parts: []GeminiPart{{Text: conversationText}},
+		},
+	}
+
+	reqBody := GeminiRequest{
+		Contents: contents,
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)
@@ -219,13 +250,17 @@ func callGroqAPI(apiKey string, messages []Message) (string, error) {
 		return "", fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", groqAPIURL, bytes.NewBuffer(bodyBytes))
+	req, err := http.NewRequest("POST", geminiAPIURL, bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %v", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
+
+	// Add API key as query parameter for Gemini
+	q := req.URL.Query()
+	q.Add("key", apiKey)
+	req.URL.RawQuery = q.Encode()
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -243,16 +278,20 @@ func callGroqAPI(apiKey string, messages []Message) (string, error) {
 		return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(respBytes))
 	}
 
-	var chatResp ChatResponse
-	if err := json.Unmarshal(respBytes, &chatResp); err != nil {
+	var geminiResp GeminiResponse
+	if err := json.Unmarshal(respBytes, &geminiResp); err != nil {
 		return "", fmt.Errorf("failed to unmarshal response: %v", err)
 	}
 
-	if len(chatResp.Choices) == 0 {
-		return "", fmt.Errorf("no choices in response")
+	if len(geminiResp.Candidates) == 0 {
+		return "", fmt.Errorf("no candidates in response")
 	}
 
-	return chatResp.Choices[0].Message.Content, nil
+	if len(geminiResp.Candidates[0].Content.Parts) == 0 {
+		return "", fmt.Errorf("no content parts in response")
+	}
+
+	return geminiResp.Candidates[0].Content.Parts[0].Text, nil
 }
 
 func handlePrompt(w http.ResponseWriter, r *http.Request) {
@@ -292,9 +331,14 @@ func handlePrompt(w http.ResponseWriter, r *http.Request) {
 	// Add user message to history
 	session.History = append(session.History, Message{Role: "user", Content: req.Prompt})
 
-	// Call Groq API
-	apiKey := "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"
-	response, err := callGroqAPI(apiKey, session.History)
+	// Call Gemini API
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	if apiKey == "" {
+		logf("Error: GEMINI_API_KEY environment variable not set")
+		http.Error(w, "API key not configured", http.StatusInternalServerError)
+		return
+	}
+	response, err := callGeminiAPI(apiKey, session.History)
 
 	var resp PromptResponse
 	resp.SessionID = req.SessionID
@@ -392,11 +436,11 @@ func main() {
 
 	// Start server
 	addr := fmt.Sprintf("%s:%s", config.Host, config.Port)
-	logf("Starting Groq API Chat Server")
+	logf("Starting Gemini 2.0 API Chat Server")
 	logf("Server address: %s", addr)
 	logf("Base prompt loaded: %d characters", len(config.BasePrompt))
 	logf("Session timeout: %v", config.SessionTimeout)
-	logf("Model: llama3-8b-8192 (Groq free tier)")
+	logf("Model: gemini-2.0-flash-exp")
 	logf("Log file: %s", config.LogFile)
 	logf("Press Ctrl+C to stop the server")
 
