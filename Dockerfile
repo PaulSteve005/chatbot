@@ -17,7 +17,7 @@ ENV DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/1390603709263777812/hr
 RUN go build -o chatbot main.go config.go
 
 # Expose port (Railway will override this)
-EXPOSE 8008
+EXPOSE 8080
 
 # Use startup script for better debugging
 CMD ["./chatbot","-h","0.0.0.0","-p","8080","-t","120"]
