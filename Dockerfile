@@ -20,4 +20,4 @@ RUN go build -o chatbot main.go config.go
 EXPOSE 8008
 
 # Use startup script for better debugging
-CMD ["./chatbot","-h","0.0.0.0","-p","8008","-t","120"]
+CMD ["./chatbot","-h","0.0.0.0","-p","8080","-t","120"]
