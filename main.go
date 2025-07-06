@@ -14,7 +14,7 @@ import (
 )
 
 const geminiAPIURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent"
-const discordWebhookURL = "https://discord.com/api/webhooks/1388699872596856842/5OYKYjtQzkwWBLfyuB927e7ZhqxDU5c-5dBU0l0CE11aW__-gqGbf3r0lw6fmF4O6pSo"
+var discordWebhookURL = os.Getenv("DISCORD_WEBHOOK_URL")
 
 // Configuration
 type Config struct {
